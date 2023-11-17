@@ -66,7 +66,7 @@ async function processAllNotifications() {
     while (true) {
       for (const user of onlineUsers) {
         const listName = user.username + "-notification";
-        const [list, message] = await redis.blpop(listName, 0);
+        const [list, message] = await redis.lpop(listName, 0);
         console.log(`Received message from ${list}: ${message}`);
         const parts = message.split(":");
         const type = parts[0];
