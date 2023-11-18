@@ -5,6 +5,7 @@ import cors from "cors";
 import Redis from "ioredis";
 import { error } from "console";
 import { channel } from "diagnostics_channel";
+import axios from "axios";
 
 const httpServer = createServer();
 const redis = new Redis({
@@ -42,23 +43,39 @@ io.on("connection", (socket) => {
   socket.on("newUser", async (username) => {
     if (username !== null) {
       addNewUser(username, socket.id);
-      console.log(`${username} has connected`);
+      console.log(`${username} has connected ${socket.id}`);
+
       const subscriber = client.duplicate();
       subscriber.on("error", (err) => console.error(err));
-      await subscriber.connect();
-      await subscriber.subscribe(
-        username + "-notification",
-        listener(username)
-      );
+
+      try {
+        await subscriber.connect();
+        await subscriber.subscribe(
+          username + "-notification",
+          listener(username)
+        );
+
+        try {
+          await axios.get(
+            `http://localhost:8080/getUnReadNotification/${username}`
+          );
+          console.log("Getting unread notifications");
+        } catch (error) {
+          console.error(error);
+        }
+      } catch (error) {
+        console.error(error);
+      }
     }
   });
 
   socket.on("disconnect", () => {
-    // const username = getUserFromId(socket.socketId);
-    //TODO: unsubscribe
-
-    // redis.unsubscribe(username + "-notification");
-    removeUser(socket.socketId);
+    const user = getUserFromId(socket.id);
+    if (user.username !== null) {
+      redis.unsubscribe(user.username + "-notification");
+    }
+    console.log(socket.id + " is disconnecting");
+    removeUser(socket.id);
   });
 });
 
@@ -68,64 +85,17 @@ httpServer.listen(5000, () => {
 
 async function processAllNotifications(message, channel) {
   try {
-    // const listName = user.username + "-notification";
-    // const message = await redis.lpop(listName);
     console.log(`Received message from ${channel}: ${message}`);
     const notificationMessage = JSON.parse(message);
 
     const username = channel.split("-")[0];
-    // const parts = message.split(":");
-    // const type = notificationMessage["type"];
-    // const message = notificationMessage["text"];
 
     const reciever = getUser(username);
 
     io.to(reciever.socketId).emit("notification", notificationMessage);
-
-    // switch (type) {
-    //   case "like":
-    //     likeNotification(
-    //       io.to(socketId),
-    //       username,
-    //       notificationMessage[""],
-    //       parts[2]
-    //     );
-    //     break;
-    //   case "comment":
-    //     commentNotification(
-    //       io.to(socketId),
-    //       username,
-    //       parts[1],
-    //       parts[2],
-    //       parts[3]
-    //     );
-    //     break;
-    //   default:
-    //     break;
-    // }
   } catch (error) {
     console.error("Error processing messages:", error);
   }
-}
-
-function sendNotification(socket, reciever, text) {
-  socket.to(reciever.socketId).emit("notification", text);
-}
-
-function likeNotification(socket, vip, username, videoName) {
-  const reciever = getUser(vip);
-  const likeMessage = `${username} has liked ${videoName}`;
-  console.log(likeMessage);
-  socket.to(reciever.socketId).emit("notification", likeMessage);
-}
-
-function commentNotification(socket, vip, username, text, videoName) {
-  // const commentMessage = `${userId} has commented: ${text} in ${videoName}`;
-  const reciever = getUser(vip);
-  const commentMessage =
-    username + " has commented: " + text + ", in " + videoName;
-  console.log(commentMessage);
-  socket.to(reciever.socketId).emit("notification", commentMessage);
 }
 
 const addNewUser = (username, socketId) => {
