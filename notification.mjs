@@ -6,11 +6,14 @@ import Redis from "ioredis";
 import { error } from "console";
 import { channel } from "diagnostics_channel";
 import axios from "axios";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const httpServer = createServer();
 const redis = new Redis({
-  host: "localhost",
-  port: 6379,
+  host: process.env.REDIS_HOST,
+  port: process.env.REDIS_PORT,
 });
 
 redis.on("connect", () => {
