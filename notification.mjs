@@ -60,7 +60,7 @@ io.on("connection", (socket) => {
 
         try {
           await axios.get(
-            `http://localhost:8080/getUnReadNotification/${username}`
+            `/backend/getUnReadNotification/${username}`
           );
           console.log("Getting unread notifications");
         } catch (error) {
@@ -83,7 +83,7 @@ io.on("connection", (socket) => {
 });
 
 httpServer.listen(5000, () => {
-  console.log("Server running at http://localhost:5000");
+  console.log("Server running at port 5000");
 });
 
 async function processAllNotifications(message, channel) {
